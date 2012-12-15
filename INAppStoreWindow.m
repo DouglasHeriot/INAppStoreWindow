@@ -159,6 +159,10 @@ static inline CGGradientRef createGradientWithColors(NSColor *startingColor, NSC
 @end
 
 @implementation INTitlebarView
+{
+@public
+	CGFloat _cornerRadius;
+}
 
 - (void)drawNoiseWithOpacity:(CGFloat)opacity
 {
@@ -200,11 +204,11 @@ static inline CGGradientRef createGradientWithColors(NSColor *startingColor, NSC
     
     NSRect drawingRect = [self bounds];
     if ( window.titleBarDrawingBlock ) {
-        CGPathRef clippingPath = createClippingPathWithRectAndRadius(drawingRect, INCornerClipRadius);
+        CGPathRef clippingPath = createClippingPathWithRectAndRadius(drawingRect, _cornerRadius);
         window.titleBarDrawingBlock(drawsAsMainWindow, NSRectToCGRect(drawingRect), clippingPath);
         CGPathRelease(clippingPath);
     } else {
-        CGContextRef context = [[NSGraphicsContext currentContext] graphicsPort];        
+        CGContextRef context = [[NSGraphicsContext currentContext] graphicsPort];
         
         NSColor *startColor = drawsAsMainWindow ? window.titleBarStartColor : window.inactiveTitleBarStartColor;
         NSColor *endColor = drawsAsMainWindow ? window.titleBarEndColor : window.titleBarEndColor;
@@ -225,7 +229,7 @@ static inline CGGradientRef createGradientWithColors(NSColor *startingColor, NSC
         }
         #endif
         clippingRect.size.height -= 1;        
-        CGPathRef clippingPath = createClippingPathWithRectAndRadius(clippingRect, INCornerClipRadius);
+        CGPathRef clippingPath = createClippingPathWithRectAndRadius(clippingRect, _cornerRadius);
         CGContextAddPath(context, clippingPath);
         CGContextClip(context);
         CGPathRelease(clippingPath);
@@ -264,7 +268,7 @@ static inline CGGradientRef createGradientWithColors(NSColor *startingColor, NSC
             }
             
             CGPathRef noiseClippingPath = 
-            createClippingPathWithRectAndRadius(noiseRect, INCornerClipRadius);
+            createClippingPathWithRectAndRadius(noiseRect, _cornerRadius);
             CGContextAddPath(context, noiseClippingPath);
             CGContextClip(context);
             CGPathRelease(noiseClippingPath);
@@ -321,6 +325,8 @@ static inline CGGradientRef createGradientWithColors(NSColor *startingColor, NSC
     BOOL _setFullScreenButtonRightMargin;
     INAppStoreWindowDelegateProxy *_delegateProxy;
     INTitlebarContainer *_titleBarContainer;
+	NSMutableDictionary *_standardWindowButtons;
+	CGFloat _cornerRadius;
 }
 
 @synthesize titleBarView = _titleBarView;
@@ -369,6 +375,7 @@ static inline CGGradientRef createGradientWithColors(NSColor *startingColor, NSC
     #if !__has_feature(objc_arc)
 //    [_delegateProxy release];
     [_titleBarView release];
+	[_standardWindowButtons release];
     [super dealloc];    
     #endif
 }
@@ -420,6 +427,81 @@ static inline CGGradientRef createGradientWithColors(NSColor *startingColor, NSC
     [super setTitle:aString];
     [self _layoutTrafficLightsAndContent];
     [self _displayWindowAndTitlebar];
+}
+
+- (BOOL)canBecomeKeyWindow
+{
+	return YES;
+}
+
+- (BOOL)canBecomeMainWindow
+{
+	return YES;
+}
+
+- (NSButton *)standardWindowButton:(NSWindowButton)b
+{
+	NSButton *button = [super standardWindowButton:b];
+	
+	if(!button)
+	{
+		if(!_standardWindowButtons)
+			_standardWindowButtons = [[NSMutableDictionary alloc] initWithCapacity:7]; // currently 7 standard window buttons in NSWindowButton
+		
+		NSNumber *key = @(b);
+		button = _standardWindowButtons[key];
+		if(!button)
+		{
+			button = [NSWindow standardWindowButton:b forStyleMask:15];
+			button.target = self;
+			[_standardWindowButtons setObject:button forKey:key];
+			
+			switch (b)
+			{
+				case NSWindowCloseButton:
+				case NSWindowMiniaturizeButton:
+				case NSWindowZoomButton:
+					[[self.contentView superview] addSubview:button];
+					break;
+			}
+		}
+	}
+	
+	return button;
+}
+
+- (BOOL)validateMenuItem:(NSMenuItem *)menuItem
+{
+    return ([menuItem action] == @selector(performClose:) || [menuItem action] == @selector(performZoom:) || [menuItem action] == @selector(performMiniaturize:)) ? YES : [super validateMenuItem:menuItem];
+}
+
+- (BOOL)windowShouldClose:(id)sender
+{
+    return YES;
+}
+
+- (void)performClose:(id)sender
+{
+    if([[self delegate] respondsToSelector:@selector(windowShouldClose:)])
+    {
+        if(![[self delegate] windowShouldClose:self]) return;
+    }
+    else if([self respondsToSelector:@selector(windowShouldClose:)])
+    {
+        if(![self windowShouldClose:self]) return;
+    }
+	
+    [self close];
+}
+
+- (void)performMiniaturize:(id)sender
+{
+    [self miniaturize:self];
+}
+
+- (void)performZoom:(id)sender
+{
+    [self zoom:self];
 }
 
 #pragma mark -
@@ -555,6 +637,12 @@ static inline CGGradientRef createGradientWithColors(NSColor *startingColor, NSC
     _delegateProxy = [INAppStoreWindowDelegateProxy alloc];
     [super setDelegate:_delegateProxy];
     
+	if(self.styleMask & NSTitledWindowMask)
+		_cornerRadius = INCornerClipRadius;
+	else
+		// Windows without titlebars have square corners
+		_cornerRadius = 0.0;
+    
     /** -----------------------------------------
      - The window automatically does layout every time its moved or resized, which means that the traffic lights and content view get reset at the original positions, so we need to put them back in place
      - NSWindow is hardcoded to redraw the traffic lights in a specific rect, so when they are moved down, only part of the buttons get redrawn, causing graphical artifacts. Therefore, the window must be force redrawn every time it becomes key/resigns key
@@ -684,7 +772,10 @@ static inline CGGradientRef createGradientWithColors(NSColor *startingColor, NSC
     self.titleBarView = [[INTitlebarView alloc] initWithFrame:NSZeroRect];
     #else
     _titleBarContainer = [container autorelease];
-    self.titleBarView = [[[INTitlebarView alloc] initWithFrame:NSZeroRect] autorelease];
+    
+	INTitlebarView *titlebarView = [[[INTitlebarView alloc] initWithFrame:NSZeroRect] autorelease];
+	titlebarView->_cornerRadius = _cornerRadius;
+    self.titleBarView = titlebarView;
     #endif
 }
 
@@ -743,7 +834,8 @@ static inline CGGradientRef createGradientWithColors(NSColor *startingColor, NSC
         NSButton *close = [self standardWindowButton:NSWindowCloseButton];
         trafficLightLeftMargin = NSMinX(close.frame);
     }
-    return trafficLightLeftMargin;
+    // If window has no titlebar, and buttons are created with [NSWindow standard…] the frame will have no origin set
+    return trafficLightLeftMargin == 0.0 ? 7.0 : trafficLightLeftMargin;
 }
 
 - (CGFloat)_trafficLightSeparation
@@ -754,7 +846,8 @@ static inline CGGradientRef createGradientWithColors(NSColor *startingColor, NSC
         NSButton *minimize = [self standardWindowButton:NSWindowMiniaturizeButton];
         trafficLightSeparation = NSMinX(minimize.frame) - NSMinX(close.frame);
     }
-    return trafficLightSeparation;    
+    // If window has no titlebar, and buttons are created with [NSWindow standard…] the frame will have no origin set
+    return trafficLightSeparation == 0.0 ? 20.0 : trafficLightSeparation;
 }
 
 - (void)_displayWindowAndTitlebar
