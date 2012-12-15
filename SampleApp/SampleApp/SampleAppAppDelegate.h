@@ -11,15 +11,15 @@
 
 @interface SampleAppAppDelegate : NSObject <NSApplicationDelegate>
 
-@property (assign) IBOutlet NSPanel *sheet;
-@property (assign) IBOutlet INAppStoreWindow *window;
-@property (assign) IBOutlet NSButton *centerFullScreen;
-@property (assign) IBOutlet NSButton *centerTrafficLight;
-@property (assign) IBOutlet NSButton *verticalTrafficLight;
-@property (assign) IBOutlet NSSlider *fullScreenRightMarginSlider;
-@property (assign) IBOutlet NSSlider *trafficLightLeftMargin;
-@property (assign) IBOutlet NSButton *showsBaselineSeparator;
-@property (nonatomic, retain) NSMutableArray *windowControllers;
+@property (unsafe_unretained) IBOutlet NSPanel *sheet;
+@property (unsafe_unretained) IBOutlet INAppStoreWindow *window;
+@property (unsafe_unretained) IBOutlet NSButton *centerFullScreen;
+@property (unsafe_unretained) IBOutlet NSButton *centerTrafficLight;
+@property (unsafe_unretained) IBOutlet NSButton *verticalTrafficLight;
+@property (unsafe_unretained) IBOutlet NSSlider *fullScreenRightMarginSlider;
+@property (unsafe_unretained) IBOutlet NSSlider *trafficLightLeftMargin;
+@property (unsafe_unretained) IBOutlet NSButton *showsBaselineSeparator;
+@property (nonatomic, strong) NSMutableArray *windowControllers;
 
 - (IBAction)createWindowController:(id)sender;
 - (IBAction)checkboxAction:(id)sender;

@@ -50,32 +50,6 @@ const CGFloat INCornerClipRadius = 4.0;
 const CGFloat INButtonTopOffset = 3.0;
 
 
-@interface NSColor (INAdditions)
-- (CGColorRef)IN_CGColorCreate;
-@end
-
-@implementation NSColor (INAdditions)
-- (CGColorRef)IN_CGColorCreate
-{
-    if([self isEqualTo:[NSColor blackColor]]) return CGColorGetConstantColor(kCGColorBlack);
-    if([self isEqualTo:[NSColor whiteColor]]) return CGColorGetConstantColor(kCGColorWhite);
-    if([self isEqualTo:[NSColor clearColor]]) return CGColorGetConstantColor(kCGColorClear);
-    NSColor *rgbColor = [self colorUsingColorSpaceName:NSCalibratedRGBColorSpace];
-    CGFloat components[4];
-    [rgbColor getComponents:components];
-    
-    CGColorSpaceRef theColorSpace = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
-    CGColorRef theColor = CGColorCreate(theColorSpace, components);
-    CGColorSpaceRelease(theColorSpace);
-
-     #if !__has_feature(objc_arc)
-    return (CGColorRef)[(id)theColor autorelease];
-    #else
-    return theColor;
-    #endif
-}
-@end
-
 NS_INLINE CGFloat INMidHeight(NSRect aRect){
     return (aRect.size.height * (CGFloat)0.5);
 }
@@ -96,11 +70,7 @@ static inline CGPathRef createClippingPathWithRectAndRadius(NSRect rect, CGFloat
 static inline CGGradientRef createGradientWithColors(NSColor *startingColor, NSColor *endingColor)
 {
     CGFloat locations[2] = {0.0f, 1.0f, };
-    #if __has_feature(objc_arc)
-    CFArrayRef colors = (__bridge CFArrayRef)[NSArray arrayWithObjects:(__bridge id)[startingColor IN_CGColorCreate], (__bridge id)[endingColor IN_CGColorCreate], nil];
-    #else
-    CFArrayRef colors = (CFArrayRef)[NSArray arrayWithObjects:(id)[startingColor IN_CGColorCreate], (id)[endingColor IN_CGColorCreate], nil];
-    #endif
+    CFArrayRef colors = (__bridge CFArrayRef)[NSArray arrayWithObjects:(__bridge id)[startingColor CGColor], (__bridge id)[endingColor CGColor], nil];
     CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
     CGGradientRef gradient = CGGradientCreateWithColors(colorSpace, colors, locations);
     CGColorSpaceRelease(colorSpace);
@@ -108,7 +78,7 @@ static inline CGGradientRef createGradientWithColors(NSColor *startingColor, NSC
 }
 
 @interface INAppStoreWindowDelegateProxy : NSProxy <NSWindowDelegate>
-@property (nonatomic, assign) id<NSWindowDelegate> secondaryDelegate;
+@property (nonatomic, unsafe_unretained) id<NSWindowDelegate> secondaryDelegate;
 @end
 
 @implementation INAppStoreWindowDelegateProxy
@@ -366,11 +336,6 @@ static inline CGGradientRef createGradientWithColors(NSColor *startingColor, NSC
 {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 //    [self setDelegate:nil];
-    #if !__has_feature(objc_arc)
-//    [_delegateProxy release];
-    [_titleBarView release];
-    [super dealloc];    
-    #endif
 }
 
 #pragma mark -

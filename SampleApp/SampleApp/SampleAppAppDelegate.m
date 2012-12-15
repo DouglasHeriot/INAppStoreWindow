@@ -46,7 +46,6 @@
     SampleWindowController *controller = [[SampleWindowController alloc] initWithWindowNibName:@"SampleWindow"];
     [controller showWindow:nil];
     [self.windowControllers addObject:controller];
-    [controller release];
 }
 
 - (IBAction)checkboxAction:(id)sender
@@ -71,9 +70,4 @@
     }    
 }
 
-- (void)dealloc
-{
-    [_windowControllers release];
-    [super dealloc];
-}
 @end
